@@ -382,8 +382,9 @@
         <input
           class="answer-input"
           id="answerInput"
-          type="number"
+          type="text"
           inputmode="numeric"
+          pattern="-?[0-9]*"
           autocomplete="off"
           autocorrect="off"
           spellcheck="false"
@@ -502,11 +503,7 @@
 
     const opDisplay = op === '*' ? '×' : op;
 
-    // Format: parentheses for negative numbers
-    const aStr = a < 0 ? `(${a})` : `${a}`;
-    const bStr = b < 0 ? `(${b})` : `${b}`;
-
-    return { label: `${aStr} ${opDisplay} ${bStr}`, answer: ans };
+    return { label: `${a} ${opDisplay} ${b}`, answer: ans };
   }
 
   /* ── Next question ── */
@@ -568,7 +565,14 @@
     if (e.key === 'Enter' && !waitingNext) {
       e.preventDefault();
       checkAnswer();
+      return;
     }
+    // Allow: digits, minus only at position 0, backspace, delete, arrows, tab
+    const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','Tab','Home','End'];
+    if (allowed.includes(e.key)) return;
+    if (e.key === '-' && inputEl.selectionStart === 0 && !inputEl.value.includes('-')) return;
+    if (/^[0-9]$/.test(e.key)) return;
+    e.preventDefault();
   });
 
   // Auto-submit on correct length for hard mode (optional UX)
