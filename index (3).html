@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <meta name="apple-mobile-web-app-title" content="Numr" />
+  <title>Numr — Math Trainer</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600;700&family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #000;
+      --surface: #0a0a0a;
+      --border: #1f1f1f;
+      --muted: #3a3a3a;
+      --text: #fff;
+      --sub: #888;
+      --accent: #fff;
+      --green: #22c55e;
+      --red: #ef4444;
+      --orange: #f97316;
+      --yellow: #eab308;
+      --ring-size: 260px;
+      --stroke: 6;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Geist', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* ── Layout ── */
+    #app {
+      height: 100dvh;
+      display: grid;
+      grid-template-rows: 56px 1fr 64px;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    /* ── Top bar ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .wordmark {
+      font-family: 'Geist Mono', monospace;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+
+    /* Difficulty toggle */
+    .diff-toggle {
+      display: flex;
+      gap: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 3px;
+    }
+
+    .diff-btn {
+      font-family: 'Geist', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 5px;
+      border: none;
+      background: transparent;
+      color: var(--sub);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      letter-spacing: 0.02em;
+    }
+
+    .diff-btn.active {
+      background: var(--text);
+      color: var(--bg);
+    }
+
+    /* ── Main arena ── */
+    main {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      position: relative;
+    }
+
+    /* Ring + input */
+    .ring-wrap {
+      position: relative;
+      width: var(--ring-size);
+      height: var(--ring-size);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .ring-svg {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      transform: rotate(-90deg);
+      pointer-events: none;
+    }
+
+    .ring-track {
+      fill: none;
+      stroke: var(--border);
+      stroke-width: var(--stroke);
+    }
+
+    .ring-progress {
+      fill: none;
+      stroke: var(--green);
+      stroke-width: var(--stroke);
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.1s linear, stroke 0.3s;
+    }
+
+    /* Inner content */
+    .ring-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      z-index: 1;
+    }
+
+    .equation {
+      font-family: 'Geist Mono', monospace;
+      font-size: clamp(36px, 10vw, 52px);
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      color: var(--text);
+      line-height: 1;
+      text-align: center;
+      min-height: 60px;
+    }
+
+    .answer-input {
+      font-family: 'Geist Mono', monospace;
+      font-size: 28px;
+      font-weight: 500;
+      text-align: center;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid var(--muted);
+      color: var(--text);
+      width: 120px;
+      outline: none;
+      padding: 4px 0;
+      caret-color: var(--text);
+      letter-spacing: 0.02em;
+      transition: border-color 0.2s;
+      -webkit-appearance: none;
+    }
+
+    .answer-input:focus {
+      border-bottom-color: var(--text);
+    }
+
+    .answer-input.correct {
+      border-bottom-color: var(--green);
+      color: var(--green);
+    }
+
+    .answer-input.wrong {
+      border-bottom-color: var(--red);
+      color: var(--red);
+    }
+
+    /* Timer label */
+    .timer-label {
+      position: absolute;
+      bottom: 16px;
+      font-family: 'Geist Mono', monospace;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--sub);
+      letter-spacing: 0.04em;
+      transition: color 0.3s;
+    }
+
+    /* Feedback flash */
+    .feedback {
+      height: 32px;
+      margin-top: 24px;
+      font-family: 'Geist Mono', monospace;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      opacity: 0;
+      transition: opacity 0.15s;
+      text-align: center;
+    }
+
+    .feedback.show { opacity: 1; }
+    .feedback.correct { color: var(--green); }
+    .feedback.wrong { color: var(--red); }
+    .feedback.timeout { color: var(--orange); }
+
+    /* Streak */
+    .streak-wrap {
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      height: 24px;
+    }
+
+    .streak-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.2s, transform 0.2s;
+    }
+
+    .streak-dot.lit {
+      background: var(--green);
+      transform: scale(1.3);
+    }
+
+    .streak-dot.miss {
+      background: var(--red);
+    }
+
+    /* ── Bottom stats bar ── */
+    footer {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      border-top: 1px solid var(--border);
+      padding: 0 20px;
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+    }
+
+    .stat-val {
+      font-family: 'Geist Mono', monospace;
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      color: var(--text);
+    }
+
+    .stat-label {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--sub);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* ── Start overlay ── */
+    #overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 40px;
+      z-index: 100;
+    }
+
+    .overlay-title {
+      font-family: 'Geist Mono', monospace;
+      font-size: 48px;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+    }
+
+    .overlay-sub {
+      font-family: 'Geist', sans-serif;
+      font-size: 14px;
+      color: var(--sub);
+      text-align: center;
+      max-width: 260px;
+      line-height: 1.6;
+    }
+
+    .start-btn {
+      font-family: 'Geist', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 12px 36px;
+      background: var(--text);
+      color: var(--bg);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      letter-spacing: 0.01em;
+      transition: opacity 0.15s;
+    }
+
+    .start-btn:active { opacity: 0.7; }
+
+    /* ── Result flash overlay (correct/wrong screen-wide flash) ── */
+    #flash {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0;
+      z-index: 50;
+      transition: opacity 0.08s;
+    }
+
+    #flash.green { background: #22c55e12; opacity: 1; }
+    #flash.red   { background: #ef444412; opacity: 1; }
+
+    /* ── Reduced motion ── */
+    @media (prefers-reduced-motion: reduce) {
+      .ring-progress, .answer-input, .feedback { transition: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="flash"></div>
+
+<!-- Start screen -->
+<div id="overlay">
+  <div class="overlay-title">numr.</div>
+  <div class="overlay-sub">
+    Equations come fast. Type the answer before the ring closes.<br><br>
+    Hard mode gives you less time.
+  </div>
+  <button class="start-btn" id="startBtn">Start</button>
+</div>
+
+<!-- App -->
+<div id="app">
+  <!-- Top bar -->
+  <header>
+    <span class="wordmark">numr.</span>
+    <div class="diff-toggle">
+      <button class="diff-btn active" data-diff="easy">Easy</button>
+      <button class="diff-btn" data-diff="medium">Medium</button>
+      <button class="diff-btn" data-diff="hard">Hard</button>
+    </div>
+  </header>
+
+  <!-- Arena -->
+  <main>
+    <div class="ring-wrap">
+      <svg class="ring-svg" viewBox="0 0 260 260">
+        <circle class="ring-track" cx="130" cy="130" r="122" />
+        <circle class="ring-progress" id="ringProgress" cx="130" cy="130" r="122" />
+      </svg>
+
+      <div class="ring-inner">
+        <div class="equation" id="equation">?</div>
+        <input
+          class="answer-input"
+          id="answerInput"
+          type="number"
+          inputmode="numeric"
+          autocomplete="off"
+          autocorrect="off"
+          spellcheck="false"
+          placeholder="—"
+          disabled
+        />
+        <div class="timer-label" id="timerLabel">—</div>
+      </div>
+    </div>
+
+    <div class="feedback" id="feedback"></div>
+
+    <div class="streak-wrap" id="streakWrap"></div>
+  </main>
+
+  <!-- Stats -->
+  <footer>
+    <div class="stat">
+      <span class="stat-val" id="statScore">0</span>
+      <span class="stat-label">Score</span>
+    </div>
+    <div class="stat">
+      <span class="stat-val" id="statStreak">0</span>
+      <span class="stat-label">Streak</span>
+    </div>
+    <div class="stat">
+      <span class="stat-val" id="statBest">0</span>
+      <span class="stat-label">Best</span>
+    </div>
+  </footer>
+</div>
+
+<script>
+  /* ── Config ── */
+  const DIFFICULTY = {
+    easy:   { time: 12000, range: [1, 10],  ops: ['+', '-'] },
+    medium: { time: 7000,  range: [1, 15],  ops: ['+', '-', '*'] },
+    hard:   { time: 3500,  range: [-9, 20], ops: ['+', '-', '*'] },
+  };
+
+  const STREAK_LEN = 7;
+
+  /* ── State ── */
+  let diff = 'easy';
+  let score = 0;
+  let streak = 0;
+  let best = parseInt(localStorage.getItem('numr-best') || '0');
+  let answer = 0;
+  let timerStart = 0;
+  let timerDuration = 0;
+  let rafId = null;
+  let waitingNext = false;
+  let streakHistory = [];
+
+  /* ── DOM refs ── */
+  const overlay     = document.getElementById('overlay');
+  const startBtn    = document.getElementById('startBtn');
+  const eqEl        = document.getElementById('equation');
+  const inputEl     = document.getElementById('answerInput');
+  const feedbackEl  = document.getElementById('feedback');
+  const timerLabel  = document.getElementById('timerLabel');
+  const ringProg    = document.getElementById('ringProgress');
+  const streakWrap  = document.getElementById('streakWrap');
+  const statScore   = document.getElementById('statScore');
+  const statStreak  = document.getElementById('statStreak');
+  const statBest    = document.getElementById('statBest');
+  const flashEl     = document.getElementById('flash');
+  const diffBtns    = document.querySelectorAll('.diff-btn');
+
+  /* ── Ring setup ── */
+  const R = 122;
+  const CIRC = 2 * Math.PI * R;
+  ringProg.style.strokeDasharray = CIRC;
+  ringProg.style.strokeDashoffset = 0;
+
+  /* ── Difficulty switch ── */
+  diffBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      diff = btn.dataset.diff;
+      diffBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  /* ── Start ── */
+  startBtn.addEventListener('click', () => {
+    overlay.style.display = 'none';
+    statBest.textContent = best;
+    nextQuestion();
+  });
+
+  /* ── Generate equation ── */
+  function randInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  function generateEquation() {
+    const cfg = DIFFICULTY[diff];
+    const op  = cfg.ops[Math.floor(Math.random() * cfg.ops.length)];
+    let a, b, ans;
+
+    if (op === '+') {
+      a = randInt(cfg.range[0], cfg.range[1]);
+      b = randInt(cfg.range[0], cfg.range[1]);
+      ans = a + b;
+    } else if (op === '-') {
+      a = randInt(cfg.range[0], cfg.range[1]);
+      b = randInt(cfg.range[0], cfg.range[1]);
+      ans = a - b;
+    } else {
+      // multiplication: keep small
+      a = randInt(1, 9);
+      b = randInt(1, 9);
+      ans = a * b;
+    }
+
+    const opDisplay = op === '*' ? '×' : op;
+
+    // Format: parentheses for negative numbers
+    const aStr = a < 0 ? `(${a})` : `${a}`;
+    const bStr = b < 0 ? `(${b})` : `${b}`;
+
+    return { label: `${aStr} ${opDisplay} ${bStr}`, answer: ans };
+  }
+
+  /* ── Next question ── */
+  function nextQuestion() {
+    waitingNext = false;
+    const eq = generateEquation();
+    answer = eq.answer;
+
+    eqEl.textContent = eq.label;
+    inputEl.value = '';
+    inputEl.className = 'answer-input';
+    inputEl.disabled = false;
+    inputEl.placeholder = '—';
+
+    setFeedback('', '');
+
+    const cfg = DIFFICULTY[diff];
+    timerDuration = cfg.time;
+    timerStart = performance.now();
+
+    cancelAnimationFrame(rafId);
+    tick();
+
+    setTimeout(() => inputEl.focus(), 50);
+  }
+
+  /* ── Timer loop ── */
+  function tick() {
+    const now     = performance.now();
+    const elapsed = now - timerStart;
+    const ratio   = Math.max(0, 1 - elapsed / timerDuration);
+
+    // Ring
+    ringProg.style.strokeDashoffset = CIRC * (1 - ratio);
+
+    // Color: green → yellow → orange → red
+    let color;
+    if (ratio > 0.5)       color = 'var(--green)';
+    else if (ratio > 0.25) color = 'var(--yellow)';
+    else if (ratio > 0.1)  color = 'var(--orange)';
+    else                   color = 'var(--red)';
+    ringProg.style.stroke = color;
+    timerLabel.style.color = color;
+
+    // Timer text
+    const secs = Math.ceil((timerDuration - elapsed) / 1000);
+    timerLabel.textContent = ratio > 0 ? `${secs}s` : '';
+
+    if (ratio <= 0) {
+      onTimeout();
+      return;
+    }
+
+    rafId = requestAnimationFrame(tick);
+  }
+
+  /* ── Input handler ── */
+  inputEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !waitingNext) {
+      e.preventDefault();
+      checkAnswer();
+    }
+  });
+
+  // Auto-submit on correct length for hard mode (optional UX)
+  inputEl.addEventListener('input', () => {
+    // nothing auto — user submits with Enter or timeout
+  });
+
+  /* ── Check ── */
+  function checkAnswer() {
+    if (waitingNext) return;
+    const val = parseInt(inputEl.value, 10);
+    if (isNaN(val)) return;
+    cancelAnimationFrame(rafId);
+    waitingNext = true;
+    inputEl.disabled = true;
+
+    if (val === answer) {
+      onCorrect();
+    } else {
+      onWrong(val);
+    }
+  }
+
+  function onCorrect() {
+    score++;
+    streak++;
+    if (streak > best) {
+      best = streak;
+      localStorage.setItem('numr-best', best);
+    }
+
+    inputEl.classList.add('correct');
+    setFeedback('correct ✓', 'correct');
+    flashScreen('green');
+    updateStats();
+    addStreakDot(true);
+
+    ringProg.style.strokeDashoffset = 0;
+    ringProg.style.stroke = 'var(--green)';
+
+    setTimeout(nextQuestion, diff === 'hard' ? 600 : 900);
+  }
+
+  function onWrong(guessed) {
+    streak = 0;
+    inputEl.classList.add('wrong');
+    setFeedback(`Answer: ${answer}`, 'wrong');
+    flashScreen('red');
+    updateStats();
+    addStreakDot(false);
+
+    ringProg.style.stroke = 'var(--red)';
+
+    setTimeout(nextQuestion, diff === 'hard' ? 800 : 1200);
+  }
+
+  function onTimeout() {
+    if (waitingNext) return;
+    waitingNext = true;
+    streak = 0;
+    inputEl.disabled = true;
+    inputEl.classList.add('wrong');
+    setFeedback(`Time's up — ${answer}`, 'timeout');
+    flashScreen('red');
+    updateStats();
+    addStreakDot(false);
+
+    setTimeout(nextQuestion, diff === 'hard' ? 800 : 1200);
+  }
+
+  /* ── Streak dots ── */
+  function addStreakDot(correct) {
+    streakHistory.push(correct);
+    if (streakHistory.length > STREAK_LEN) streakHistory.shift();
+    renderStreak();
+  }
+
+  function renderStreak() {
+    streakWrap.innerHTML = '';
+    for (let i = 0; i < STREAK_LEN; i++) {
+      const dot = document.createElement('div');
+      dot.className = 'streak-dot';
+      if (i < streakHistory.length) {
+        dot.classList.add(streakHistory[i] ? 'lit' : 'miss');
+      }
+      streakWrap.appendChild(dot);
+    }
+  }
+
+  /* ── Flash screen ── */
+  function flashScreen(color) {
+    flashEl.className = color;
+    setTimeout(() => { flashEl.className = ''; }, 220);
+  }
+
+  /* ── Feedback ── */
+  function setFeedback(msg, type) {
+    feedbackEl.textContent = msg;
+    feedbackEl.className = 'feedback' + (msg ? ` show ${type}` : '');
+  }
+
+  /* ── Stats ── */
+  function updateStats() {
+    statScore.textContent  = score;
+    statStreak.textContent = streak;
+    statBest.textContent   = best;
+  }
+
+  /* ── Init streak dots ── */
+  renderStreak();
+
+  /* ── PWA ── */
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+
+  /* ── Keep input focused ── */
+  document.addEventListener('click', () => {
+    if (!overlay.style.display || overlay.style.display === 'none') {
+      if (!inputEl.disabled) inputEl.focus();
+    }
+  });
+</script>
+</body>
+</html>
